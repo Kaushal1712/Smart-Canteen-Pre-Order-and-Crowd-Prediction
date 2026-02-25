@@ -13,73 +13,77 @@ FROM canteen_tables ct
 CROSS JOIN generate_series(1, 8) AS s(n)
 ON CONFLICT (table_id, seat_number) DO NOTHING;
 
--- MENU ITEMS
+DELETE FROM order_items;
+DELETE FROM orders;
+DELETE FROM menu_customizations;
+DELETE FROM menu_items;
+
+
+-- 🟢 NEW CANTEEN MENU ITEMS
 INSERT INTO menu_items (name, description, price, category, is_veg, spice_level, prep_time_minutes)
 VALUES
-('Paneer Butter Masala', 'Creamy tomato-based paneer curry', 120, 'North Indian', true, 'medium', 15),
-('Chole Bhature', 'Spiced chickpeas with fried bread', 80, 'North Indian', true, 'medium', 12),
-('Dal Makhani', 'Slow-cooked black lentils in butter', 90, 'North Indian', true, 'mild', 15),
-('Butter Chicken', 'Tender chicken in rich tomato gravy', 140, 'North Indian', false, 'medium', 18),
-('Aloo Paratha', 'Stuffed potato flatbread with butter', 50, 'North Indian', true, 'mild', 10),
-('Rajma Chawal', 'Kidney bean curry with steamed rice', 70, 'North Indian', true, 'medium', 12),
-('Roti (2 pcs)', 'Fresh whole wheat flatbread', 20, 'North Indian', true, 'mild', 5),
-('Jeera Rice', 'Cumin-tempered basmati rice', 50, 'North Indian', true, 'mild', 10),
-('Naan', 'Soft tandoor-baked bread', 30, 'North Indian', true, 'mild', 5),
-('Masala Dosa', 'Crispy crepe filled with spiced potato', 60, 'South Indian', true, 'medium', 10),
-('Idli Sambhar (3 pcs)', 'Steamed rice cakes with lentil soup', 40, 'South Indian', true, 'mild', 8),
-('Medu Vada (2 pcs)', 'Crispy fried lentil donuts', 35, 'South Indian', true, 'mild', 8),
-('Uttapam', 'Thick pancake topped with vegetables', 55, 'South Indian', true, 'mild', 10),
-('Filter Coffee', 'Traditional South Indian coffee', 25, 'South Indian', true, 'mild', 3),
-('Samosa (2 pcs)', 'Crispy pastry with spiced potato filling', 30, 'Snacks', true, 'medium', 5),
-('Veg Sandwich', 'Fresh vegetables between toasted bread', 40, 'Snacks', true, 'mild', 8),
-('Grilled Sandwich', 'Cheesy grilled sandwich with veggies', 60, 'Snacks', true, 'mild', 10),
-('Paneer Roll', 'Paneer wrapped in a soft paratha', 70, 'Snacks', true, 'medium', 10),
-('Chicken Roll', 'Spiced chicken wrapped in paratha', 80, 'Snacks', false, 'spicy', 12),
-('French Fries', 'Crispy salted potato fries', 50, 'Snacks', true, 'mild', 8),
-('Maggi', 'Classic 2-minute noodles', 30, 'Snacks', true, 'medium', 8),
-('Masala Chai', 'Spiced Indian tea', 15, 'Beverages', true, 'mild', 3),
-('Coffee', 'Hot brewed coffee', 20, 'Beverages', true, 'mild', 3),
-('Fresh Lime Soda', 'Sweet or salted lime soda', 25, 'Beverages', true, 'mild', 3),
-('Mango Lassi', 'Thick mango yogurt smoothie', 40, 'Beverages', true, 'mild', 5),
-('Cold Coffee', 'Iced coffee with milk', 45, 'Beverages', true, 'mild', 5),
-('Buttermilk', 'Spiced chilled buttermilk', 20, 'Beverages', true, 'mild', 3)
-ON CONFLICT DO NOTHING;
 
--- MENU CUSTOMIZATIONS
-INSERT INTO menu_customizations (menu_item_id, name, price_addon, type)
-SELECT id, 'Extra cheese', 20, 'checkbox' FROM menu_items WHERE name = 'Paneer Butter Masala'
-UNION ALL
-SELECT id, 'No onion', 0, 'checkbox' FROM menu_items WHERE name = 'Paneer Butter Masala'
-UNION ALL
-SELECT id, 'Extra gravy', 15, 'checkbox' FROM menu_items WHERE name = 'Paneer Butter Masala'
-UNION ALL
-SELECT id, 'Less oil', 0, 'checkbox' FROM menu_items WHERE name = 'Paneer Butter Masala'
-UNION ALL
-SELECT id, 'Extra gravy', 15, 'checkbox' FROM menu_items WHERE name = 'Butter Chicken'
-UNION ALL
-SELECT id, 'Boneless', 20, 'checkbox' FROM menu_items WHERE name = 'Butter Chicken'
-UNION ALL
-SELECT id, 'Extra cheese', 15, 'checkbox' FROM menu_items WHERE name = 'Grilled Sandwich'
-UNION ALL
-SELECT id, 'No onion', 0, 'checkbox' FROM menu_items WHERE name = 'Grilled Sandwich'
-UNION ALL
-SELECT id, 'Add corn', 10, 'checkbox' FROM menu_items WHERE name = 'Grilled Sandwich'
-UNION ALL
-SELECT id, 'Extra chutney', 0, 'checkbox' FROM menu_items WHERE name = 'Masala Dosa'
-UNION ALL
-SELECT id, 'Ghee roast', 15, 'checkbox' FROM menu_items WHERE name = 'Masala Dosa'
-UNION ALL
-SELECT id, 'Extra cheese', 15, 'checkbox' FROM menu_items WHERE name = 'Maggi'
-UNION ALL
-SELECT id, 'Add veggies', 10, 'checkbox' FROM menu_items WHERE name = 'Maggi'
-UNION ALL
-SELECT id, 'Add egg', 15, 'checkbox' FROM menu_items WHERE name = 'Maggi'
-ON CONFLICT DO NOTHING;
+-- BREAKFAST
+('Poha', 'Light flattened rice cooked with spices', 25, 'Breakfast', true, 'mild', 5),
+('Upma', 'Semolina breakfast dish with veggies', 30, 'Breakfast', true, 'mild', 7),
+('Sabudana', 'Sabudana khichdi with peanuts', 35, 'Breakfast', true, 'mild', 7),
+('Sabudana Wada', 'Crispy sabudana fritters', 30, 'Breakfast', true, 'mild', 8),
 
-INSERT INTO menu_customizations (menu_item_id, name, price_addon, type, group_name)
-SELECT id, 'Sweet', 0, 'radio', 'lime_type' FROM menu_items WHERE name = 'Fresh Lime Soda'
-UNION ALL
-SELECT id, 'Salted', 0, 'radio', 'lime_type' FROM menu_items WHERE name = 'Fresh Lime Soda'
-UNION ALL
-SELECT id, 'Mixed', 0, 'radio', 'lime_type' FROM menu_items WHERE name = 'Fresh Lime Soda'
-ON CONFLICT DO NOTHING;
+-- SOUTH INDIAN
+('Idli Sambhar', 'Steamed idli served with sambhar', 40, 'South Indian', true, 'mild', 8),
+('Plain Dosa', 'Crispy plain dosa with chutney', 45, 'South Indian', true, 'mild', 8),
+('Masala Dosa', 'Dosa stuffed with potato masala', 60, 'South Indian', true, 'medium', 10),
+('Uttapam', 'Thick dosa topped with vegetables', 55, 'South Indian', true, 'mild', 10),
+
+-- SNACKS / STREET FOOD
+('Vadapav', 'Mumbai style batata vada pav', 20, 'Snacks', true, 'medium', 5),
+('Batata Vada Sambhar', 'Batata vada served with sambhar', 40, 'Snacks', true, 'medium', 8),
+('Samosa', 'Crispy potato samosa', 15, 'Snacks', true, 'medium', 5),
+('Dahi Samosa', 'Samosa topped with curd and chutneys', 30, 'Snacks', true, 'mild', 6),
+('Kanda Bhaji', 'Onion fritters', 30, 'Snacks', true, 'medium', 6),
+('Bread Pattice', 'Bread stuffed with potato filling', 25, 'Snacks', true, 'mild', 6),
+('Bread Butter', 'Toasted bread with butter', 20, 'Snacks', true, 'mild', 3),
+('Toast Butter', 'Crispy butter toast', 20, 'Snacks', true, 'mild', 3),
+('French Fries', 'Crispy salted fries', 50, 'Snacks', true, 'mild', 8),
+('Veg Sandwich', 'Fresh vegetable sandwich', 40, 'Snacks', true, 'mild', 7),
+('Veg Grilled Sandwich', 'Grilled vegetable sandwich', 60, 'Snacks', true, 'mild', 10),
+('Cheese Sandwich', 'Cheesy vegetable sandwich', 55, 'Snacks', true, 'mild', 8),
+('Paneer Roll', 'Paneer stuffed roll', 70, 'Snacks', true, 'medium', 10),
+('Dhokla', 'Steamed gram flour snack', 30, 'Snacks', true, 'mild', 6),
+
+-- MAGGI
+('Plain Maggi', 'Classic Maggi noodles', 30, 'Snacks', true, 'mild', 5),
+('Masala Maggi', 'Spicy masala Maggi', 35, 'Snacks', true, 'medium', 6),
+('Cheese Maggi', 'Maggi topped with cheese', 45, 'Snacks', true, 'mild', 6),
+
+-- MAIN COURSE
+('Dal Rice', 'Dal served with steamed rice', 60, 'Main Course', true, 'mild', 10),
+('Rajma Rice', 'Rajma curry with rice', 70, 'Main Course', true, 'medium', 12),
+('Jeera Rice', 'Cumin flavored basmati rice', 50, 'Main Course', true, 'mild', 8),
+('Fried Rice', 'Vegetable fried rice', 70, 'Chinese', true, 'medium', 10),
+('Schezwan Fried Rice', 'Spicy schezwan fried rice', 80, 'Chinese', true, 'spicy', 12),
+('Hakka Noodles', 'Stir fried hakka noodles', 70, 'Chinese', true, 'medium', 10),
+('Schezwan Hakka Noodles', 'Spicy schezwan noodles', 80, 'Chinese', true, 'spicy', 12),
+('Chole Bhature', 'Chole curry with bhature', 80, 'North Indian', true, 'medium', 12),
+('Puri Bhaji', 'Puri with potato bhaji', 60, 'North Indian', true, 'mild', 10),
+('Paneer Thali', 'Paneer curry with roti, rice & sides', 120, 'Thali', true, 'medium', 15),
+('Veg Thali', 'Complete veg meal thali', 100, 'Thali', true, 'mild', 15),
+('Roti', 'Whole wheat roti', 10, 'North Indian', true, 'mild', 3),
+
+-- PARATHAS
+('Aloo Paratha', 'Potato stuffed paratha', 40, 'North Indian', true, 'mild', 8),
+('Paneer Paratha', 'Paneer stuffed paratha', 60, 'North Indian', true, 'mild', 10),
+
+-- BEVERAGES
+('Tea', 'Hot chai', 10, 'Beverages', true, 'mild', 2),
+('Coffee', 'Hot coffee', 15, 'Beverages', true, 'mild', 2),
+('Filter Coffee', 'South Indian filter coffee', 25, 'Beverages', true, 'mild', 3),
+('Cold Coffee', 'Iced coffee with milk', 40, 'Beverages', true, 'mild', 3),
+('Cold Drinks', 'Chilled soft drinks', 30, 'Beverages', true, 'mild', 1),
+('Fresh Lime Water', 'Refreshing lime drink', 20, 'Beverages', true, 'mild', 2),
+('Lassi', 'Sweet lassi', 30, 'Beverages', true, 'mild', 3),
+('Mango Lassi', 'Mango flavored lassi', 40, 'Beverages', true, 'mild', 3),
+('Masala Buttermilk', 'Spiced buttermilk', 20, 'Beverages', true, 'mild', 2),
+
+-- DESSERT
+('Gulab Jamun (2 pc)', 'Soft gulab jamuns', 30, 'Desserts', true, 'mild', 2);
