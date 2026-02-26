@@ -10,7 +10,13 @@ export const DEMO_CANTEEN_TABLES: CanteenTable[] = [
   { id: 'table-7', table_number: 7, seats_count: 8, grid_row: 1, grid_col: 1 },
   { id: 'table-8', table_number: 8, seats_count: 8, grid_row: 1, grid_col: 2 },
   { id: 'table-9', table_number: 9, seats_count: 8, grid_row: 1, grid_col: 3 },
-  { id: 'table-10', table_number: 10, seats_count: 8, grid_row: 1, grid_col: 4 }
+  { id: 'table-10', table_number: 10, seats_count: 8, grid_row: 1, grid_col: 4 },
+  { id: 'table-11', table_number: 11, seats_count: 8, grid_row: 2, grid_col: 0 },
+  { id: 'table-12', table_number: 12, seats_count: 8, grid_row: 2, grid_col: 1 },
+  { id: 'table-13', table_number: 13, seats_count: 8, grid_row: 2, grid_col: 2 },
+  { id: 'table-14', table_number: 14, seats_count: 8, grid_row: 2, grid_col: 3 },
+  { id: 'table-15', table_number: 15, seats_count: 8, grid_row: 2, grid_col: 4 },
+  { id: 'table-16', table_number: 16, seats_count: 8, grid_row: 2, grid_col: 5 }
 ]
 
 export const DEMO_SEATS: Seat[] = DEMO_CANTEEN_TABLES.flatMap((table) =>

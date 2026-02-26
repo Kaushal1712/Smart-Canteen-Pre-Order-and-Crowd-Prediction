@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Minus, Plus, X } from 'lucide-react'
 
@@ -120,7 +121,7 @@ export function CustomizationModal({ item, open, onClose, onAdd }: Customization
     return null
   }
 
-  return (
+  const modal = (
     <AnimatePresence>
       {open ? (
         <>
@@ -129,32 +130,45 @@ export function CustomizationModal({ item, open, onClose, onAdd }: Customization
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
           />
           <motion.div
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[24px] bg-white p-5 shadow-warmXl md:inset-x-auto md:left-1/2 md:top-1/2 md:max-h-[88vh] md:w-[560px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:p-7"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4 sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
-            <div className="mb-6 flex items-start justify-between gap-4">
+            <motion.div
+              className="pointer-events-auto relative flex w-full max-w-[560px] flex-col max-h-[90vh] overflow-hidden rounded-[24px] bg-white shadow-[0_2px_5px_rgba(0,0,0,0.1)] border border-cream-200/60 md:max-h-[88vh]"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-cream-200/60 p-4 md:px-6 md:py-4">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Customize Item</p>
-                <h3 className="font-display text-[26px] font-bold text-[#1A1A1A]">{item.name}</h3>
-                <p className="mt-1 text-[14px] text-[#6B6560]">{formatCurrency(item.price)} base price</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-[20px] md:text-[22px] font-bold leading-tight text-[#1A1A1A]">{item.name}</h3>
+                  <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[12px] font-medium text-[#6B6560]">
+                    {formatCurrency(item.price)}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#9C9590]">Customize Item</p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="focus-ring flex h-9 w-9 items-center justify-center rounded-full bg-cream-200 text-[#6B6560]"
+                className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cream-200 text-[#6B6560]"
               >
-                <X className="h-[18px] w-[18px]" />
+                <X className="h-[16px] w-[16px]" />
               </button>
             </div>
 
-            <div className="space-y-5">
-              {groupedCustomizations.checkboxes?.length ? (
+            <div className="flex-1 overflow-y-auto p-4 md:px-6 md:py-5">
+              <div className="space-y-5">
+                {groupedCustomizations.checkboxes?.length ? (
                 <section>
                   <h4 className="mb-2 text-[13px] font-semibold text-[#1A1A1A]">Add-ons</h4>
                   <div className="space-y-2">
@@ -239,28 +253,22 @@ export function CustomizationModal({ item, open, onClose, onAdd }: Customization
                 />
                 <p className="mt-1 text-right text-[11px] text-[#9C9590]">{instructions.length}/200</p>
               </section>
+            </div>
+            </div>
 
-              <section className="flex items-center justify-between rounded-card bg-cream-50 px-4 py-3">
-                <div>
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Quantity</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Button variant="secondary" size="icon" onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="w-8 text-center text-[16px] font-semibold text-[#1A1A1A]">{quantity}</span>
-                    <Button variant="secondary" size="icon" onClick={() => setQuantity((prev) => prev + 1)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Total</p>
-                  <p className="font-display text-[24px] font-bold text-[#1A1A1A]">{formatCurrency(lineTotal)}</p>
-                </div>
-              </section>
+            <div className="shrink-0 flex flex-row items-center gap-3 border-t border-cream-200/60 p-4 md:px-6 md:py-4 bg-white">
+              <div className="flex items-center gap-1 shrink-0 rounded-[12px] bg-cream-50 p-1 border border-cream-100">
+                <Button variant="secondary" size="icon" className="h-9 w-9 md:h-10 md:w-10 shrink-0" onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}>
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-6 md:w-8 text-center text-[15px] md:text-[16px] font-bold text-[#1A1A1A]">{quantity}</span>
+                <Button variant="secondary" size="icon" className="h-9 w-9 md:h-10 md:w-10 shrink-0" onClick={() => setQuantity((prev) => prev + 1)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
 
               <Button
-                className="w-full"
+                className="flex-1 h-[44px] md:h-[48px] px-4 md:px-6 flex items-center justify-between"
                 onClick={() =>
                   onAdd({
                     item,
@@ -271,12 +279,16 @@ export function CustomizationModal({ item, open, onClose, onAdd }: Customization
                   })
                 }
               >
-                Add to Cart
+                <span className="font-medium">Add to Cart</span>
+                <span className="font-bold">{formatCurrency(lineTotal)}</span>
               </Button>
             </div>
+          </motion.div>
           </motion.div>
         </>
       ) : null}
     </AnimatePresence>
   )
+
+  return typeof window !== 'undefined' ? createPortal(modal, document.body) : null
 }

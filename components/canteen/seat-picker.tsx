@@ -1,5 +1,6 @@
 'use client'
 
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, X } from 'lucide-react'
 
@@ -33,7 +34,7 @@ export function SeatPicker({
     return bookings.find((booking) => booking.seat_id === seatId && ['held', 'occupied'].includes(booking.status))
   }
 
-  return (
+  const modal = (
     <AnimatePresence>
       {open ? (
         <>
@@ -42,15 +43,23 @@ export function SeatPicker({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
           />
           <motion.div
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-[24px] bg-white p-5 shadow-warmXl md:inset-x-auto md:left-1/2 md:top-1/2 md:w-[520px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:p-7"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4 sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
+            <motion.div
+              className="pointer-events-auto relative w-full max-w-[520px] rounded-[24px] bg-white p-5 shadow-warmXl md:p-7"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
             <div className="mb-5 flex items-start justify-between">
               <div>
                 <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Select Seat</p>
@@ -80,36 +89,42 @@ export function SeatPicker({
                     disabled={occupiedByOther || isLoading}
                     onClick={() => onSelectSeat(seat)}
                     className={cn(
-                      'focus-ring relative flex h-14 w-full items-center justify-center rounded-chip text-[13px] font-semibold transition-all',
+                      'focus-ring relative flex h-12 w-full items-center justify-center rounded-button text-[13px] font-semibold transition-all',
                       occupiedByOther
-                        ? 'cursor-not-allowed bg-danger-50 text-danger-500'
+                        ? 'cursor-not-allowed bg-cream-200 text-[#9C9590]'
                         : isSelected || reservedByCurrent
-                          ? 'bg-info-500 text-white'
-                          : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                          ? 'bg-terracotta-500 text-white shadow-warmSm'
+                          : 'border border-sage-100 bg-sage-50 text-sage-600 hover:bg-sage-100 hover:shadow-warmSm'
                     )}
                     aria-label={`Seat ${seat.seat_number}, ${occupiedByOther ? 'occupied' : 'available'}`}
                   >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : `S${seat.seat_number}`}
-                    {(isSelected || reservedByCurrent) && !isLoading ? (
-                      <motion.span
-                        className="absolute inset-0 rounded-chip border-2 border-info-500"
-                        animate={{ opacity: [0.6, 0, 0.6], scale: [1, 1.08, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    ) : null}
                   </button>
                 )
               })}
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3 text-[12px] font-semibold">
-              <span className="rounded-chip bg-sage-50 px-3 py-1 text-sage-600">Available</span>
-              <span className="rounded-chip bg-info-50 px-3 py-1 text-info-500">Your seat</span>
-              <span className="rounded-chip bg-danger-50 px-3 py-1 text-danger-500">Occupied</span>
+            {/* Legend with square swatches */}
+            <div className="mt-5 flex flex-wrap gap-4 text-[12px] font-semibold text-[#6B6560]">
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 rounded-[4px] border border-sage-100 bg-sage-50" />
+                Available
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 rounded-[4px] bg-terracotta-400 border border-terracotta-500" />
+                Your seat
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 rounded-[4px] bg-cream-200" />
+                Occupied
+              </span>
             </div>
+            </motion.div>
           </motion.div>
         </>
       ) : null}
     </AnimatePresence>
   )
+
+  return typeof window !== 'undefined' ? createPortal(modal, document.body) : null
 }

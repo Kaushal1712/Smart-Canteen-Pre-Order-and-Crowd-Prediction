@@ -26,7 +26,7 @@ interface CartStore {
   activeBookingId: string | null
   holdExpiresAt: string | null
   paymentMethod: string
-  setDiningMode: (mode: DiningMode) => void
+  setDiningMode: (mode: DiningMode | null) => void
   setSelectedSeat: (seat: SelectedSeat | null) => void
   setActiveBooking: (bookingId: string | null, expiresAt?: string | null) => void
   setPaymentMethod: (method: string) => void

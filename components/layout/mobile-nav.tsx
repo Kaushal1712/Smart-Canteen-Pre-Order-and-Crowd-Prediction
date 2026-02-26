@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { CircleUser, Home, Receipt, ShoppingCart, UtensilsCrossed } from 'lucide-react'
+import { Armchair, CircleUser, Home, Receipt, UtensilsCrossed } from 'lucide-react'
 
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { cn } from '@/lib/utils/cn'
@@ -16,7 +16,7 @@ const MOBILE_LINKS = [
   {
     label: 'Canteen',
     href: '/canteen',
-    icon: ShoppingCart
+    icon: Armchair
   },
   {
     label: 'Menu',

@@ -7,6 +7,7 @@ interface CanteenStatusBadgeProps {
 
 export function CanteenStatusBadge({ occupied, total }: CanteenStatusBadgeProps) {
   const percent = total === 0 ? 0 : Math.round((occupied / total) * 100)
+  const available = Math.max(0, total - occupied)
 
   const variant = percent > 80 ? 'danger' : percent >= 50 ? 'warning' : 'success'
 
@@ -21,7 +22,7 @@ export function CanteenStatusBadge({ occupied, total }: CanteenStatusBadgeProps)
               : 'h-2 w-2 rounded-full bg-sage-500'
         }
       />
-      {occupied} / {total} seats occupied
+      {available} / {total} seats available
     </Badge>
   )
 }

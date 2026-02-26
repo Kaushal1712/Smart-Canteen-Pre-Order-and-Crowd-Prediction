@@ -28,6 +28,10 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState('')
 
   useEffect(() => {
+    document.title = 'Profile | Smart Canteen'
+  }, [])
+
+  useEffect(() => {
     async function fetchProfile() {
       if (!user) {
         return

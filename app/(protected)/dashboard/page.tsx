@@ -5,21 +5,18 @@ import { useRouter } from 'next/navigation'
 import { ClipboardList, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { CanteenStatusBadge } from '@/components/canteen/canteen-status-badge'
-import { OrderStatusBadge } from '@/components/dashboard/order-status-badge'
-import { PrepProgressBar } from '@/components/dashboard/prep-progress-bar'
 import { QuickActions } from '@/components/dashboard/quick-actions'
+import { ActiveOrderCard } from '@/components/dashboard/active-order-card'
+import { CanteenMinimap } from '@/components/dashboard/canteen-minimap'
 import { PageTransition } from '@/components/shared/page-transition'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { AUTH_PLACEHOLDER_MODE } from '@/lib/config'
-import { DEMO_OCCUPIED_BOOKINGS, DEMO_SEATS } from '@/lib/demo-data'
+import { DEMO_CANTEEN_TABLES, DEMO_OCCUPIED_BOOKINGS, DEMO_SEATS } from '@/lib/demo-data'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { createClient } from '@/lib/supabase/client'
 import { useCartStore } from '@/lib/stores/use-cart-store'
 import { useOrderStore } from '@/lib/stores/use-order-store'
-import type { OrderWithItems, SeatBookingWithMeta } from '@/lib/types'
-import { formatCurrency } from '@/lib/utils/format'
+import type { CanteenTable, OrderWithItems, Seat, SeatBooking, SeatBookingWithMeta } from '@/lib/types'
 import { getAutoStatus } from '@/lib/utils/order-lifecycle'
 
 const ACTIVE_ORDER_STATUSES = ['confirmed', 'preparing', 'ready']
@@ -37,6 +34,38 @@ export default function DashboardPage() {
   const [activeBooking, setActiveBookingState] = useState<SeatBookingWithMeta | null>(null)
   const [recentOrders, setRecentOrders] = useState<OrderWithItems[]>([])
   const [seatStats, setSeatStats] = useState({ total: 0, occupied: 0 })
+  const [canteenTables, setCanteenTables] = useState<CanteenTable[]>([])
+  const [canteenSeats, setCanteenSeats] = useState<Seat[]>([])
+  const [canteenBookings, setCanteenBookings] = useState<SeatBooking[]>([])
+  const [canteenLoading, setCanteenLoading] = useState(false)
+
+  async function fetchCanteenData() {
+    setCanteenLoading(true)
+
+    if (AUTH_PLACEHOLDER_MODE) {
+      setCanteenTables(DEMO_CANTEEN_TABLES)
+      setCanteenSeats(DEMO_SEATS)
+      setCanteenBookings(DEMO_OCCUPIED_BOOKINGS)
+      setCanteenLoading(false)
+      return
+    }
+
+    try {
+      const [{ data: tableRows }, { data: seatRows }, { data: bookingRows }] = await Promise.all([
+        supabase.from('canteen_tables').select('*').order('grid_row', { ascending: true }).order('grid_col', { ascending: true }),
+        supabase.from('seats').select('*'),
+        supabase.from('seat_bookings').select('*').in('status', ['held', 'occupied'])
+      ])
+
+      if (tableRows) setCanteenTables(tableRows as CanteenTable[])
+      if (seatRows) setCanteenSeats(seatRows as Seat[])
+      if (bookingRows) setCanteenBookings(bookingRows as SeatBooking[])
+    } catch (error) {
+      console.error('Failed to fetch canteen data:', error)
+    } finally {
+      setCanteenLoading(false)
+    }
+  }
 
   async function fetchDashboardData() {
     if (!user) {
@@ -150,7 +179,12 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    document.title = 'Smart Canteen'
+  }, [])
+
+  useEffect(() => {
     void fetchDashboardData()
+    void fetchCanteenData()
   }, [activeBookingId, demoOrders, selectedSeat, user])
 
   useEffect(() => {
@@ -219,7 +253,8 @@ export default function DashboardPage() {
       return
     }
 
-    router.push('/canteen')
+    setDiningMode('takeaway')
+    router.push('/menu')
   }
 
   async function handleCancelOrder(orderId: string) {
@@ -262,35 +297,41 @@ export default function DashboardPage() {
     await fetchDashboardData()
   }
 
-  async function handleDoneEating() {
-    if (!user) {
-      return
-    }
-
-    const confirmed = window.confirm('Release your seat now?')
-
-    if (!confirmed) {
-      return
-    }
-
+  async function handlePickedUp(orderId: string) {
     if (AUTH_PLACEHOLDER_MODE) {
-      setActiveBooking(null)
-      setSelectedSeat(null)
-      toast.success('Seat released. Thanks for visiting!')
+      updateOrderStatus(orderId, 'picked_up')
+      // Also release seat if this was a dine-in order
+      const order = activeOrders.find((o) => o.id === orderId)
+      if (order?.order_type === 'dine-in' && activeBooking) {
+        setActiveBooking(null)
+        setSelectedSeat(null)
+      }
+      toast.success('Order marked as picked up!')
       await fetchDashboardData()
       return
     }
 
-    const { data, error } = await supabase.rpc('release_seat', { p_user_id: user.id })
+    if (!user) return
 
-    if (error || !data?.success) {
-      toast.error('Unable to release seat right now.')
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'picked_up' })
+      .eq('id', orderId)
+
+    if (error) {
+      toast.error('Unable to update order right now.')
       return
     }
 
-    setActiveBooking(null)
-    setSelectedSeat(null)
-    toast.success('Seat released. Thanks for visiting!')
+    // Release the seat if this was a dine-in order
+    const order = activeOrders.find((o) => o.id === orderId)
+    if (order?.order_type === 'dine-in' && activeBooking) {
+      await supabase.rpc('release_seat', { p_user_id: user.id })
+      setActiveBooking(null)
+      setSelectedSeat(null)
+    }
+
+    toast.success('Order marked as picked up!')
     await fetchDashboardData()
   }
 
@@ -298,115 +339,127 @@ export default function DashboardPage() {
   const bookingTableMeta = activeBooking?.seats?.canteen_tables
   const resolvedBookingTable = Array.isArray(bookingTableMeta) ? bookingTableMeta[0] : bookingTableMeta
 
+  const occupancyPercent = seatStats.total === 0 ? 0 : Math.round((seatStats.occupied / seatStats.total) * 100)
+
   return (
     <PageTransition>
-      <section className="space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+      <section className="h-[calc(100dvh-172px)] lg:h-[calc(100dvh-80px)] flex flex-col overflow-hidden bg-white max-w-screen-2xl mx-auto w-full">
+        {/* Header — desktop only */}
+        <header className="hidden lg:flex flex-wrap items-center justify-between gap-2 pb-5 border-b border-cream-100 flex-shrink-0">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Overview</p>
             <h1 className="font-display text-[28px] font-bold text-[#1A1A1A]">
               Hey, {profile?.name || 'Student'}!
             </h1>
           </div>
-          <CanteenStatusBadge occupied={seatStats.occupied} total={seatStats.total} />
         </header>
 
+        {/* Main Content Grid - Takes remaining space */}
         {loading ? (
-          <div className="flex min-h-[280px] items-center justify-center rounded-card bg-white">
-            <Loader2 className="h-6 w-6 animate-spin text-[#6B6560]" />
-          </div>
-        ) : primaryOrder ? (
-          <article className="rounded-card bg-[#1A1A1A] p-6 text-white shadow-warmLg">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[12px] uppercase tracking-[0.08em] text-[#A0A0A0]">Active Order</p>
-                <h2 className="mt-1 font-display text-[30px] font-bold">#{primaryOrder.id.slice(0, 8).toUpperCase()}</h2>
+          <div className="flex-1 flex flex-col gap-2 lg:grid lg:gap-3 lg:grid-cols-3 lg:grid-rows-1 lg:pt-4 overflow-hidden">
+            <div className="lg:col-span-2 flex flex-col gap-2 lg:gap-3 min-w-0 min-h-0 flex-1 lg:flex-initial bg-cream-50 border border-cream-200 rounded-card p-2 lg:p-3 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center">
+                <div className="space-y-4 h-full flex flex-col">
+                  <Skeleton className="h-6 w-32 flex-shrink-0" />
+                  <div className="flex-1 overflow-hidden space-y-2">
+                    <Skeleton className="h-[120px] w-full rounded-2xl" />
+                    <Skeleton className="h-[120px] w-full rounded-2xl" />
+                  </div>
+                </div>
               </div>
-              <OrderStatusBadge status={primaryOrder.status} />
+              <div className="flex-shrink-0 mt-auto pt-2 grid grid-cols-3 gap-2">
+                 <Skeleton className="h-14 w-full rounded-xl" />
+                 <Skeleton className="h-14 w-full rounded-xl" />
+                 <Skeleton className="h-14 w-full rounded-xl" />
+              </div>
             </div>
-
-            <div className="mt-4 space-y-3">
-              {activeBooking?.seats && resolvedBookingTable ? (
-                <p className="text-[14px] text-[#DADADA]">
-                  Seat: Table {resolvedBookingTable.table_number}, Seat {activeBooking.seats.seat_number}
-                </p>
-              ) : (
-                <p className="text-[14px] text-[#DADADA]">Takeaway order — pick up at counter</p>
-              )}
-
-              <p className="text-[14px] text-[#DADADA]">
-                Items:{' '}
-                {primaryOrder.order_items
-                  ?.map((item) => `${item.menu_items?.name || 'Item'} ×${item.quantity}`)
-                  .join(', ') || 'No items'}
-              </p>
-
-              <PrepProgressBar
-                estimatedMinutes={primaryOrder.estimated_prep_minutes}
-                createdAt={primaryOrder.created_at}
-                status={primaryOrder.status}
-              />
+            <div className="lg:col-span-1 min-h-0 min-w-0 overflow-hidden flex-1 lg:flex-initial bg-cream-50 border border-cream-200 rounded-card p-2 lg:p-3 shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]">
+               <div className="flex flex-col h-full gap-4 p-2">
+                 <div className="flex justify-between items-center flex-shrink-0">
+                   <Skeleton className="h-6 w-32" />
+                   <Skeleton className="h-6 w-16" />
+                 </div>
+                 <Skeleton className="flex-1 min-h-[200px] w-full rounded-2xl" />
+               </div>
             </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button onClick={handleOrderMore}>Order More</Button>
-              {primaryOrder.status !== 'ready' ? (
-                <Button variant="outline" onClick={() => handleCancelOrder(primaryOrder.id)}>
-                  Cancel Order
-                </Button>
-              ) : null}
-              {(primaryOrder.status === 'ready' || primaryOrder.status === 'picked_up') && activeBooking ? (
-                <Button variant="secondary" onClick={handleDoneEating}>
-                  I&apos;m Done Eating
-                </Button>
-              ) : null}
-            </div>
-          </article>
-        ) : (
-          <EmptyState
-            icon={ClipboardList}
-            title="No active orders"
-            description="Start a new order to reserve your seat and skip the queue."
-            actionLabel="Start New Order"
-            onAction={() => router.push('/canteen')}
-          />
-        )}
-
-        <QuickActions
-          onNewOrder={() => router.push('/canteen')}
-          onViewCanteen={() => router.push('/canteen')}
-          onFullMenu={() => router.push('/menu')}
-        />
-
-        <section className="rounded-card bg-white p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-[24px] font-bold text-[#1A1A1A]">Recent Orders</h2>
-            <Button variant="ghost" onClick={() => router.push('/orders')}>
-              View All Orders
-            </Button>
           </div>
-
-          {recentOrders.length === 0 ? (
-            <p className="text-[14px] text-[#6B6560]">No recent orders found.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.slice(0, 5).map((order) => (
-                <article key={order.id} className="rounded-button bg-cream-50 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-[14px] font-semibold text-[#1A1A1A]">#{order.id.slice(0, 8).toUpperCase()}</p>
-                      <p className="text-[12px] text-[#6B6560]">{new Date(order.created_at).toLocaleString()}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <OrderStatusBadge status={order.status} />
-                      <span className="text-[14px] font-semibold text-[#1A1A1A]">{formatCurrency(order.total_amount)}</span>
+        ) : (
+          <div className="flex-1 flex flex-col gap-2 lg:grid lg:gap-3 lg:grid-cols-3 lg:grid-rows-1 lg:pt-4 overflow-hidden">
+            {/* Left Column: Active Orders + Quick Actions */}
+            <div className="lg:col-span-2 flex flex-col gap-2 lg:gap-3 min-w-0 min-h-0 flex-1 lg:flex-initial bg-cream-50 border border-cream-200 rounded-card p-2 lg:p-3 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]">
+              {/* Active Orders / Empty State — fills remaining space, buttons stay at bottom */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-center">
+                {primaryOrder ? (
+                  <div className="space-y-2 h-full flex flex-col">
+                    <h2 className="font-display text-[16px] font-bold text-[#1A1A1A] flex-shrink-0">Active Orders</h2>
+                    <div className="flex-1 overflow-y-auto pr-2">
+                      <div className="space-y-2">
+                        {activeOrders.map((order) => (
+                          <ActiveOrderCard
+                            key={order.id}
+                            order={order}
+                            tableInfo={
+                              order === primaryOrder && activeBooking?.seats && resolvedBookingTable
+                                ? {
+                                    tableNumber: resolvedBookingTable.table_number,
+                                    seatNumber: activeBooking.seats.seat_number
+                                  }
+                                : null
+                            }
+                            onCancel={() => handleCancelOrder(order.id)}
+                            onPickedUp={order.status === 'ready' ? () => handlePickedUp(order.id) : undefined}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </article>
-              ))}
+                ) : (
+                  <>
+                    {/* Compact empty state for mobile */}
+                    <div className="lg:hidden flex flex-col items-center justify-center gap-3 py-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cream-100">
+                        <ClipboardList className="h-5 w-5 text-cream-400" />
+                      </div>
+                      <p className="text-[14px] font-semibold text-[#1A1A1A]">No active orders</p>
+                      <p className="text-[12px] text-[#6B6560]">Place an order to get started</p>
+                    </div>
+                    {/* Full empty state for desktop */}
+                    <div className="hidden lg:flex flex-col items-center justify-center gap-3 py-8">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cream-100 shadow-sm">
+                        <ClipboardList className="h-7 w-7 text-cream-400" />
+                      </div>
+                      <h3 className="font-display text-[20px] font-bold text-[#1A1A1A]">No active orders</h3>
+                      <p className="text-[14px] text-[#6B6560]">Use the actions below to place a new order</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Quick Actions — pinned to bottom */}
+              <div className="flex-shrink-0 mt-auto">
+                <QuickActions
+                  hasActiveOrders={activeOrders.length > 0}
+                  onNewOrder={activeOrders.length > 0 ? handleOrderMore : () => router.push('/canteen')}
+                  onFullMenu={() => router.push('/menu')}
+                  onViewOrders={() => router.push('/orders')}
+                />
+              </div>
             </div>
-          )}
-        </section>
+
+            {/* Right Column / Bottom on mobile: Live Canteen Minimap */}
+            <div className="lg:col-span-1 min-h-0 min-w-0 overflow-hidden flex-1 lg:flex-initial bg-cream-50 border border-cream-200 rounded-card p-2 lg:p-3 shadow-[inset_0_2px_10px_rgba(0,0,0,0.03)]">
+              <CanteenMinimap
+                tables={canteenTables}
+                seats={canteenSeats}
+                bookings={canteenBookings}
+                loading={canteenLoading}
+                occupied={seatStats.occupied}
+                total={seatStats.total}
+                onViewFull={() => router.push('/canteen')}
+              />
+            </div>
+          </div>
+        )}
       </section>
     </PageTransition>
   )

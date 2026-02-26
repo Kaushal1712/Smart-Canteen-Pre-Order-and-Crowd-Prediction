@@ -11,6 +11,7 @@ import { TableCard } from '@/components/canteen/table-card'
 import { PageTransition } from '@/components/shared/page-transition'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingButton } from '@/components/ui/loading-button'
 import { AUTH_PLACEHOLDER_MODE } from '@/lib/config'
 import { DEMO_CANTEEN_TABLES, DEMO_OCCUPIED_BOOKINGS, DEMO_SEATS } from '@/lib/demo-data'
@@ -134,7 +135,7 @@ export default function CanteenPage() {
       .maybeSingle()
 
     if (activeBooking?.id && activeBooking.seats) {
-      const seatMeta = activeBooking.seats as {
+      const seatMeta = activeBooking.seats as unknown as {
         id: string
         seat_number: number
         table_id: string
@@ -169,6 +170,10 @@ export default function CanteenPage() {
   }
 
   useEffect(() => {
+    document.title = 'Live Canteen | Smart Canteen'
+  }, [])
+
+  useEffect(() => {
     void fetchMapData()
   }, [user])
 
@@ -197,8 +202,11 @@ export default function CanteenPage() {
 
     const expiresAtMs = new Date(holdExpiresAt).getTime()
 
+    const calculateRemaining = () => Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000))
+    setHoldRemainingSeconds(calculateRemaining())
+
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000))
+      const remaining = calculateRemaining()
       setHoldRemainingSeconds(remaining)
 
       if (remaining <= 0) {
@@ -353,51 +361,66 @@ export default function CanteenPage() {
     toast.success('Seat released.')
   }
 
-  const maxColumns = Math.max(...tables.map((table) => table.grid_col + 1), 1)
+  const tablesByRow = tables.reduce<Record<number, CanteenTable[]>>((acc, table) => {
+    if (!acc[table.grid_row]) acc[table.grid_row] = []
+    acc[table.grid_row].push(table)
+    return acc
+  }, {})
+  const sortedRowIndices = Object.keys(tablesByRow).map(Number).sort((a, b) => a - b)
 
   return (
     <PageTransition>
       <section className="space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+        {/* ── Desktop header ── */}
+        <header className="hidden sm:flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Seat Selection</p>
-            <h1 className="font-display text-[28px] font-bold text-[#1A1A1A]">Live Canteen Map</h1>
-          </div>
-          <CanteenStatusBadge occupied={occupiedSeats} total={totalSeats} />
-        </header>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setDiningMode('dine-in')}
-            className={`focus-ring rounded-card border px-5 py-5 text-left transition-all ${
-              diningMode === 'dine-in' || !diningMode
-                ? 'border-terracotta-500 bg-terracotta-50'
-                : 'border-transparent bg-white'
-            }`}
-          >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-terracotta-600 shadow-warmSm">
-              <Armchair className="h-5 w-5" />
+            <div className="flex items-center gap-3">
+               <h1 className="font-display text-[28px] font-bold text-[#1A1A1A]">Live Canteen Map</h1>
+               <CanteenStatusBadge occupied={occupiedSeats} total={totalSeats} />
             </div>
-            <p className="font-display text-[22px] font-bold text-[#1A1A1A]">Dine In</p>
-            <p className="mt-1 text-[14px] text-[#6B6560]">Book your seat and order food in advance.</p>
-          </button>
-
+          </div>
+          
           <button
             type="button"
             onClick={handleTakeawayMode}
-            className="focus-ring rounded-card border border-transparent bg-white px-5 py-5 text-left transition-all hover:shadow-warmMd"
+            className="flex items-center gap-2 rounded-button bg-[#1A1A1A] px-4 py-2.5 text-sm font-semibold text-white shadow-warmSm hover:bg-[#2A2A2A] active:bg-[#333] transition-all focus-ring"
           >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cream-100 text-[#6B6560]">
-              <ShoppingBag className="h-5 w-5" />
-            </div>
-            <p className="font-display text-[22px] font-bold text-[#1A1A1A]">Takeaway</p>
-            <p className="mt-1 text-[14px] text-[#6B6560]">Skip seat booking and place a pickup order directly.</p>
+            <ShoppingBag className="h-4 w-4 text-white/70" />
+            Skip to Takeaway
           </button>
-        </div>
+        </header>
+
+        {/* ── Mobile header ── */}
+        <header className="flex flex-col gap-3 sm:hidden">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Seat Selection</p>
+            <h1 className="font-display text-[26px] font-bold text-[#1A1A1A]">Live Canteen</h1>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            {/* Seats available box */}
+            <div className="flex items-center justify-center gap-2 rounded-[14px] bg-[#F4FAF0] px-3 py-3 ring-1 ring-[#B7E0A4]">
+              <span className="flex h-2 w-2 shrink-0 rounded-full bg-[#3DA830]" />
+              <span className="text-[13px] font-semibold leading-snug text-[#2D7A22]">
+                {Math.max(0, totalSeats - occupiedSeats)} / {totalSeats} seats free
+              </span>
+            </div>
+
+            {/* Skip to Takeaway box */}
+            <button
+              type="button"
+              onClick={handleTakeawayMode}
+              className="flex items-center justify-center gap-2 rounded-[14px] bg-[#1A1A1A] px-3 py-3 text-[13px] font-semibold text-white shadow-warmSm active:bg-[#333] transition-all"
+            >
+              <ShoppingBag className="h-[15px] w-[15px] text-white/70 shrink-0" />
+              Skip to Takeaway
+            </button>
+          </div>
+        </header>
 
         {selectedSeat ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-[#1A1A1A] px-5 py-4 text-white">
+          <div className="flex flex-col gap-3 overflow-hidden rounded-card bg-[#1A1A1A] px-5 py-4 text-white sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">Active Seat Hold</p>
               <p className="mt-1 text-[15px] font-semibold">
@@ -409,16 +432,17 @@ export default function CanteenPage() {
                 </p>
               ) : null}
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Button
                 variant="secondary"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   void handleClearSeat()
                 }}
               >
                 Clear Seat
               </Button>
-              <Button onClick={handleContinueToMenu}>
+              <Button className="w-full sm:w-auto" onClick={handleContinueToMenu}>
                 Continue to Menu
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -427,8 +451,20 @@ export default function CanteenPage() {
         ) : null}
 
         {loading ? (
-          <div className="flex min-h-[260px] items-center justify-center rounded-card bg-white">
-            <Loader2 className="h-5 w-5 animate-spin text-[#6B6560]" />
+          <div className="map-grid-background overflow-x-auto overflow-y-hidden rounded-card bg-[#FBF9F6] border border-cream-200/60 shadow-inner hide-scrollbar touch-pan-x relative">
+            <div className="flex flex-col gap-4 md:gap-5 min-w-[760px] lg:min-w-full w-full p-4 md:p-6">
+              {[5, 5, 6].map((colCount, r) => (
+                <div 
+                  key={r} 
+                  className="grid gap-4 border border-cream-200 p-2 md:p-4 rounded-xl"
+                  style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
+                >
+                  {Array.from({ length: colCount }).map((_, c) => (
+                    <Skeleton key={c} className="aspect-square w-full rounded-xl bg-white" />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         ) : fullyBooked ? (
           <EmptyState
@@ -439,32 +475,59 @@ export default function CanteenPage() {
             onAction={handleTakeawayMode}
           />
         ) : (
-          <div className="map-grid-background overflow-hidden rounded-card bg-[#e9f6fa] p-4 md:p-6">
-            <div
-              className="grid gap-4 md:gap-5"
-              style={{
-                gridTemplateColumns: `repeat(${Math.max(2, Math.min(maxColumns, 5))}, minmax(0, 1fr))`
-              }}
-            >
-              {tables.map((table) => {
-                const tableSeats = seats.filter((seat) => seat.table_id === table.id)
-                const seatIds = new Set(tableSeats.map((seat) => seat.id))
-                const occupied = bookings.filter((booking) => seatIds.has(booking.seat_id)).length
-                const available = Math.max(0, tableSeats.length - occupied)
+          <div className="map-grid-background overflow-x-auto overflow-y-hidden rounded-card bg-[#FBF9F6] border border-cream-200/60 shadow-inner hide-scrollbar touch-pan-x relative">
+            <div className="flex flex-col gap-4 md:gap-5 min-w-[760px] lg:min-w-full w-full p-4 md:p-6">
+              {sortedRowIndices.map((rowIndex) => {
+                const rowTables = tablesByRow[rowIndex].slice().sort((a, b) => a.grid_col - b.grid_col)
+                const colCount = rowTables.length
+                const isCondensed = colCount > 5
 
                 return (
-                  <TableCard
-                    key={table.id}
-                    tableNumber={table.table_number}
-                    seatCount={table.seats_count}
-                    available={available}
-                    occupied={occupied}
-                    selected={selectedTableId === table.id}
-                    onClick={() => {
-                      setSelectedTableId(table.id)
-                      setPickerOpen(true)
+                  <div
+                    key={rowIndex}
+                    className="grid"
+                    style={{
+                      gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+                      gap: isCondensed ? '8px' : '16px'
                     }}
-                  />
+                  >
+                    {rowTables.map((table) => {
+                      const tableSeats = seats.filter((seat) => seat.table_id === table.id)
+                      const seatIds = new Set(tableSeats.map((seat) => seat.id))
+                      const occupied = bookings.filter((booking) => seatIds.has(booking.seat_id)).length
+                      const available = Math.max(0, tableSeats.length - occupied)
+
+                      const seatStates = tableSeats
+                        .slice()
+                        .sort((a, b) => a.seat_number - b.seat_number)
+                        .map((seat): 'available' | 'occupied' | 'yours' => {
+                          if (selectedSeat?.seat_id === seat.id) return 'yours'
+                          const booking = bookings.find(
+                            (b) => b.seat_id === seat.id && ['held', 'occupied'].includes(b.status)
+                          )
+                          if (!booking) return 'available'
+                          if (booking.user_id === user?.id) return 'yours'
+                          return 'occupied'
+                        })
+
+                      return (
+                        <TableCard
+                          key={table.id}
+                          tableNumber={table.table_number}
+                          seatCount={table.seats_count}
+                          available={available}
+                          occupied={occupied}
+                          selected={selectedTableId === table.id}
+                          condensed={isCondensed}
+                          seatStates={seatStates}
+                          onClick={() => {
+                            setSelectedTableId(table.id)
+                            setPickerOpen(true)
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
                 )
               })}
             </div>
@@ -483,22 +546,13 @@ export default function CanteenPage() {
           onSelectSeat={handleHoldSeat}
         />
 
-        <div className="rounded-card bg-cream-50 p-5">
-          <p className="text-[14px] text-[#6B6560]">
-            Select a table to view seats. Green seats are available, red are occupied, blue is your selected seat.
-            Your seat hold remains active for 5 minutes while you complete order checkout.
+        <div className="rounded-card bg-cream-50 p-5 border border-cream-200 shadow-warmSm">
+          <p className="text-[14px] text-[#6B6560] leading-relaxed">
+            Select a table to view seats. <span className="font-semibold text-sage-600">Green outlines</span> are available, <span className="font-semibold text-cream-600">grey boxes</span> are occupied,
+            and <span className="font-semibold text-terracotta-600">terracotta</span> marks your seat. Your seat hold remains active for 5 minutes
+            while you complete order checkout.
           </p>
         </div>
-
-        <LoadingButton
-          loading={false}
-          className="w-full md:w-auto"
-          onClick={handleContinueToMenu}
-          disabled={!selectedSeat}
-        >
-          Continue to Menu
-          <ChevronRight className="h-4 w-4" />
-        </LoadingButton>
       </section>
     </PageTransition>
   )

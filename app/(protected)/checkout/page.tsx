@@ -1,9 +1,10 @@
 'use client'
 
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Circle, CreditCard, Landmark, Loader2 } from 'lucide-react'
+import { CheckCircle2, Circle, CreditCard, Landmark, Loader2, MapPin, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PageTransition } from '@/components/shared/page-transition'
@@ -44,11 +45,17 @@ export default function CheckoutPage() {
 
   const [processing, setProcessing] = useState(false)
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   const total = getTotal()
   const estimatedPrep = getEstimatedPrepTime()
 
   useEffect(() => {
+    document.title = 'Checkout | Smart Canteen'
+  }, [])
+
+  useEffect(() => {
+    setMounted(true)
     if (items.length === 0) {
       router.replace('/menu')
       return
@@ -191,15 +198,15 @@ export default function CheckoutPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="rounded-card bg-white p-8 text-center shadow-warmLg"
+            className="rounded-card bg-white p-10 text-center shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-1 ring-cream-200/60"
           >
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 220, damping: 16 }}
-              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sage-50 text-sage-600"
+              className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-sage-50 text-sage-600"
             >
-              <CheckCircle2 className="h-10 w-10" />
+              <CheckCircle2 className="h-12 w-12" />
             </motion.div>
             <h1 className="font-display text-[32px] font-bold text-[#1A1A1A]">Order Confirmed!</h1>
             <p className="mt-2 text-[15px] text-[#6B6560]">Order ID: {successOrderId.slice(0, 8).toUpperCase()}</p>
@@ -212,48 +219,56 @@ export default function CheckoutPage() {
 
   return (
     <PageTransition>
-      <section className="mx-auto max-w-3xl space-y-6">
+      <section className="mx-auto max-w-3xl space-y-5">
         <header>
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9C9590]">Checkout</p>
-          <h1 className="font-display text-[28px] font-bold text-[#1A1A1A]">Review & Pay</h1>
+          <h1 className="font-display text-[28px] font-bold text-[#1A1A1A]">Review &amp; Pay</h1>
         </header>
 
-        <article className="rounded-card bg-white p-5">
-          <h2 className="font-display text-[22px] font-bold text-[#1A1A1A]">Order Summary</h2>
+        {/* Order Summary */}
+        <article className="rounded-card bg-white p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08)] ring-1 ring-cream-200/60">
+          <h2 className="font-display text-[18px] font-bold text-[#1A1A1A]">Order Summary</h2>
           <div className="mt-4 space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="rounded-button bg-cream-50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#1A1A1A]">{item.name}</p>
-                    <p className="text-[13px] text-[#6B6560]">
-                      Qty {item.quantity} · Spice {item.spice_level}
+              <div key={item.id} className="flex items-start justify-between gap-3 rounded-button bg-cream-50 p-3 ring-1 ring-cream-200/60">
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-[#1A1A1A]">{item.name}</p>
+                  <p className="mt-0.5 text-[13px] text-[#6B6560]">
+                    Qty {item.quantity} · Spice {item.spice_level}
+                  </p>
+                  {item.customizations.length ? (
+                    <p className="mt-1 line-clamp-2 text-[12px] text-[#9C9590]">
+                      {item.customizations.map((customization) => customization.name).join(', ')}
                     </p>
-                    {item.customizations.length ? (
-                      <p className="mt-1 text-[12px] text-[#9C9590]">
-                        {item.customizations.map((customization) => customization.name).join(', ')}
-                      </p>
-                    ) : null}
-                  </div>
-                  <p className="text-[15px] font-bold text-[#1A1A1A]">{formatCurrency(getCartLineTotal(item))}</p>
+                  ) : null}
                 </div>
+                <p className="shrink-0 text-[15px] font-bold text-[#1A1A1A]">{formatCurrency(getCartLineTotal(item))}</p>
               </div>
             ))}
           </div>
         </article>
 
-        <article className="rounded-card bg-white p-5">
-          <h2 className="font-display text-[22px] font-bold text-[#1A1A1A]">Dining Details</h2>
-          <div className="mt-3 rounded-button bg-cream-50 p-3 text-[14px] text-[#6B6560]">
-            {diningMode === 'dine-in' && selectedSeat
-              ? `Dine-In — Table ${selectedSeat.table_number}, Seat ${selectedSeat.seat_number}`
-              : 'Takeaway — Pick up at counter when ready'}
+        {/* Dining Details */}
+        <article className="rounded-card bg-white p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08)] ring-1 ring-cream-200/60">
+          <h2 className="font-display text-[18px] font-bold text-[#1A1A1A]">Dining Details</h2>
+          <div className="mt-4 flex items-center gap-4 rounded-button bg-cream-50 p-4 ring-1 ring-cream-200/60">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta-50 text-terracotta-600">
+              {diningMode === 'dine-in' ? <MapPin className="h-5 w-5" /> : <ShoppingBag className="h-5 w-5" />}
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-[#1A1A1A]">
+                {diningMode === 'dine-in' && selectedSeat
+                  ? `Dine-In — Table ${selectedSeat.table_number}, Seat ${selectedSeat.seat_number}`
+                  : 'Takeaway — Pick up at counter when ready'}
+              </p>
+              <p className="mt-0.5 text-[13px] text-[#6B6560]">Estimated prep time: ~{estimatedPrep} min</p>
+            </div>
           </div>
-          <div className="mt-2 text-[13px] text-[#6B6560]">Estimated prep time: ~{estimatedPrep} minutes</div>
         </article>
 
-        <article className="rounded-card bg-white p-5">
-          <h2 className="font-display text-[22px] font-bold text-[#1A1A1A]">Payment Method</h2>
+        {/* Payment Method */}
+        <article className="rounded-card bg-white p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08)] ring-1 ring-cream-200/60">
+          <h2 className="font-display text-[18px] font-bold text-[#1A1A1A]">Payment Method</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {PAYMENT_METHODS.map((method) => {
               const Icon = paymentIcons[method.value]
@@ -264,11 +279,13 @@ export default function CheckoutPage() {
                   key={method.value}
                   type="button"
                   onClick={() => setPaymentMethod(method.value)}
-                  className={`focus-ring rounded-card border p-4 text-left transition-all ${
-                    active ? 'border-terracotta-500 bg-terracotta-50' : 'border-transparent bg-cream-50'
+                  className={`focus-ring rounded-card p-4 text-left transition-all ${
+                    active
+                      ? 'bg-terracotta-50 ring-2 ring-terracotta-500 shadow-[0_2px_8px_rgba(180,70,40,0.12)]'
+                      : 'bg-cream-50 ring-1 ring-cream-200 hover:bg-cream-100 hover:ring-cream-300'
                   }`}
                 >
-                  <Icon className="h-5 w-5 text-[#6B6560]" />
+                  <Icon className={`h-5 w-5 ${active ? 'text-terracotta-600' : 'text-[#6B6560]'}`} />
                   <p className="mt-3 text-[14px] font-semibold text-[#1A1A1A]">{method.label}</p>
                   <p className="text-[12px] text-[#6B6560]">{method.subtitle}</p>
                 </button>
@@ -277,39 +294,48 @@ export default function CheckoutPage() {
           </div>
         </article>
 
-        <article className="rounded-card bg-[#1A1A1A] p-5 text-white">
-          <div className="flex items-center justify-between">
-            <p className="text-[14px] text-[#A0A0A0]">Total Payable</p>
-            <p className="font-display text-[32px] font-bold">{formatCurrency(total)}</p>
+        {/* Total & CTA */}
+        <article className="rounded-card bg-[#1A1A1A] p-6 text-white shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#A0A0A0]">Total Payable</p>
+              <p className="font-display text-[36px] font-bold leading-none mt-1">{formatCurrency(total)}</p>
+            </div>
+            <p className="text-[13px] text-[#A0A0A0]">via {PAYMENT_METHODS.find(m => m.value === paymentMethod)?.label ?? paymentMethod}</p>
           </div>
           <LoadingButton
             loading={processing}
             loadingText="Processing payment..."
-            className="mt-4 w-full"
+            className="mt-5 w-full"
             onClick={handleConfirmPay}
           >
-            Confirm & Pay
+            Confirm &amp; Pay
           </LoadingButton>
         </article>
-
-        <AnimatePresence>
-          {processing ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[80] flex items-center justify-center bg-black/25"
-            >
-              <div className="rounded-card bg-white px-6 py-5 shadow-warmXl">
-                <div className="flex items-center gap-3 text-[15px] font-semibold text-[#1A1A1A]">
-                  <Loader2 className="h-5 w-5 animate-spin text-terracotta-600" />
-                  Processing your payment...
-                </div>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </section>
+
+      {mounted
+        ? createPortal(
+            <AnimatePresence>
+              {processing ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[200] flex items-center justify-center bg-black/25"
+                >
+                  <div className="rounded-card bg-white px-6 py-5 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+                    <div className="flex items-center gap-3 text-[15px] font-semibold text-[#1A1A1A]">
+                      <Loader2 className="h-5 w-5 animate-spin text-terracotta-600" />
+                      Processing your payment...
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body
+          )
+        : null}
     </PageTransition>
   )
 }

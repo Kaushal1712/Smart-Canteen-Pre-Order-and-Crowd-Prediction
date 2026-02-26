@@ -58,9 +58,9 @@ export function CartDrawer({ open, onClose, onProceed, occupancyPercent }: CartD
               <EmptyState title="Your cart is empty" description="Browse the menu and add items to continue." icon={Trash2} />
             ) : (
               <>
-                <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                <div className="flex-1 space-y-3 overflow-y-auto px-1 py-1">
                   {items.map((item) => (
-                    <article key={item.id} className="rounded-button bg-cream-50 p-3">
+                    <article key={item.id} className="rounded-button bg-white p-3 shadow-[0_2px_6px_rgba(0,0,0,0.08)] ring-1 ring-cream-200/60">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-[15px] font-semibold text-[#1A1A1A]">{item.name}</p>
