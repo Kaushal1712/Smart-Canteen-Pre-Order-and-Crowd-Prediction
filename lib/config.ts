@@ -1,4 +1,4 @@
-export const AUTH_PLACEHOLDER_MODE = false
+export const AUTH_PLACEHOLDER_MODE = true
 
 export const DEMO_USER = {
   id: 'demo-user-0001',
